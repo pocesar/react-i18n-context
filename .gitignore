@@ -1,0 +1,13 @@
+index.js
+node_modules
+index.d.ts
+index.js.map
+index.test.d.ts
+index.test.js.map
+index.test.js
+example/script.js
+example/node_modules
+example/script.d.ts
+example/script.js.map
+example/dist
+coverage

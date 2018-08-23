@@ -1,0 +1,14 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`I18nInline changes language 1`] = `
+<div>
+  Hello 
+  world
+</div>
+`;
+
+exports[`withI18n HOC 1`] = `
+<div>
+  hello
+</div>
+`;

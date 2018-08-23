@@ -1,0 +1,13 @@
+{
+  "name": "example",
+  "private": true,
+  "scripts": {
+    "start": "cp ./lang/*.json ./dist/ && parcel --no-cache ./index.html"
+  },
+  "devDependencies": {
+    "babel-polyfill": "^6.26.0",
+    "moment": "^2.22.2",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "parcel": "^1.9.7"
+  }
+}

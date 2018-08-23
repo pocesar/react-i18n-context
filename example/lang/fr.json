@@ -1,0 +1,12 @@
+{
+  "hello": "Bonjour",
+  "world": "monde",
+  "increment": "Plus",
+  "complex": "Un exemple plus complexe",
+  "have-milk": {
+    "have": "J'ai ",
+    "count": ["tasses","tasse"],
+    "milk": "de lait",
+    "alot": "(C'est beaucoup de lait!)"
+  }
+}
