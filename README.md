@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/pocesar/react-i18n-context.svg?branch=master)](https://travis-ci.org/pocesar/react-i18n-context)
+[![npm version](https://badge.fury.io/js/react-i18n-context.svg)](https://badge.fury.io/js/react-i18n-context)
+
 # react-i18n-context
 
 Making i18n in React 16.3+ the easiest way possible with the new Context API
