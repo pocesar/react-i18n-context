@@ -1,3 +1,6 @@
 language: node_js
 node_js:
   - "10"
+before_script:
+  - npm i react moment @types/react @types/lodash.get @types/react-dom
+  - tsc -p tsconfig.json
