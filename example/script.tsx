@@ -164,7 +164,9 @@ class App extends React.Component<{}, { error: Error | null }> {
   error: I18nErrorHandler = (error) => {
     if (this.state.error || this.state.error === error) return
 
-    requestAnimationFrame(() => {
+    const frame = requestAnimationFrame(() => {
+      cancelAnimationFrame(frame)
+
       this.setState({ error })
     })
   }
