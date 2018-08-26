@@ -35,9 +35,77 @@ npm i react-i18n-context --save
 
 if on a Typescript project or on vscode, you should either have a peerDependency with the types and add `@types/lodash.get` and `@types/react`. Minimum React version is 16.3, but 16.4+ is recommended because of recent bug fixes.
 
+#### main.jsx
+```tsx
+import React from 'react'
+import { I18nProvider, I18nRender, I18nInline, I18nRawConsumer } from 'react-i18n-context'
+
+class App extends React.Component {
+  loader = async (lang) => {
+    const s = await fetch(`/locale/${lang}.json`, {
+      headers: {
+        'Content-Type': 'json'
+      }
+    })
+
+    return await s.json()
+  }
+
+  render() {
+    return (
+      <I18nProvider defaultLanguage="en" source={this.loader}>
+        <h1><I18nInline path="world.hello" /></h1>
+        <I18nRender path="members">
+          {(translation) => (
+            <>
+              <div>{translation.member1}</div>
+              <div>{translation.member2}</div>
+            </>
+          )}
+        </I18nRender>
+        <I18nRawConsumer>
+          {(context) => (
+            <>
+              <button onClick={() => context.setLanguage('pt')}>Português</button>
+              <button onClick={() => context.setLanguage('en')}>English</button>
+            </>
+          )}
+        </I18nRawConsumer>
+      </I18nProvider>
+    )
+  }
+}
+```
+
+#### locale/en.json
+```json
+{
+  "world": {
+    "hello": "Hello world"
+  },
+  "members": {
+    "member1": "member1",
+    "member2": "member2"
+  }
+}
+```
+
+#### locale/pt.json
+```json
+{
+  "world": {
+    "hello": "Olá mundo"
+  },
+  "members": {
+    "member1": "membro1",
+    "member2": "membro2"
+  }
+}
+```
+
 ## Caveats
 
-* Can't use dots, numbers and `[]` in path names, since the have special meaning in [lodash.get](https://lodash.com/docs/#get). so to use `some.path` you need to escape de `.`
+* Can't use dots, numbers and `[]` in path names, since the have special meaning in [lodash.get](https://lodash.com/docs/#get). so to use `some.path` you need to escape the `.`s
 * Tested only with UTF-8, not sure if it works with other charsets
 * `componentDidCatch` might swallow some errors in production, therefore need to use `errorHandler` even for logging UI errors
 * Although you can bundle your json files with your translations, not many people will have use for 60 languages and a huge bundle just for translations
