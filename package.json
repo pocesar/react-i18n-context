@@ -1,6 +1,6 @@
 {
   "name": "react-i18n-context",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "making i18n in React 16.3+ the easiest way possible with the new Context API",
   "scripts": {
     "test": "jest",
