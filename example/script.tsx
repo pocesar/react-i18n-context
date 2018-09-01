@@ -221,7 +221,6 @@ class App extends React.Component {
   }
 
   render() {
-    console.log('render')
     return (
       <I18nProvider<MyHelpers>
         // defaultLanguage can also come from a redux store or be hardcoded like this
