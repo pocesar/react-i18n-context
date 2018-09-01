@@ -9,3 +9,4 @@ index.test.d.ts
 index.test.js
 index.test.js.map
 coverage
+!index.js

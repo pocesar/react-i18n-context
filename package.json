@@ -22,6 +22,7 @@
     "json",
     "pojo"
   ],
+  "main": "./index.js",
   "esnext": "./index.js",
   "types": "./index.d.ts",
   "author": "Paulo Cesar <https://github.com/pocesar>",
