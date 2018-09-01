@@ -6,11 +6,12 @@ import get from 'lodash.get'
 export type I18nPath = { [key: string]: string | string[] | I18nPath | I18nPath[] }
 export type SetLocale = (lang: string) => Promise<void>
 export type Report = (error: Error) => void
+export type Clear = () => void
 export type Get<Result> = (path: string) => Result
 export type I18nAsyncLoader<T> = (lang: string) => T | Promise<T>
 export type AsyncLoaderHandler<T> = (lang: string, loader: I18nAsyncLoader<T>) => Promise<T>
 export type InsertLanguage<T extends {}> = (lang: string, data: T) => T
-export type I18nErrorHandler = (error: I18nBaseError) => void
+export type I18nErrorHandler = (error: I18nBaseError) => Promise<void> | void
 
 export interface I18nContext {
   /** current language */
@@ -18,7 +19,9 @@ export interface I18nContext {
   /** sets the locale */
   setLocale: SetLocale
   /** report an error to the provider, so it can be shown somewhere else */
-  report: Report
+  reportError: Report
+  /** clear last error attached to the provider. does not trigger an update */
+  clearLastError: Clear
   /** get a path */
   get: Get<any>
   /** loads a language */
@@ -37,9 +40,10 @@ export const noop = () => { return Promise.resolve() }
 export const I18nContext = React.createContext<I18nContext>({
   lang: '',
   setLocale: noop as any,
-  report: noop as any,
+  reportError: noop as any,
   get: noop as any,
   ready: false,
+  clearLastError: noop as any,
   asyncLoader: noop as any
 })
 
@@ -48,39 +52,62 @@ export const I18nRawConsumer = I18nContext.Consumer
 export type I18nReceiver<Helpers = {}> = (value: I18nContext & I18nHelpers<Helpers>) => React.ReactNode
 
 export class I18nBaseError extends Error {
-  name = 'I18nBaseError'
-
-  constructor(message: string) {
+  constructor(message: string, public original: Error | null = null) {
     super(message)
 
+    this.name = 'I18nBaseError'
+
+    Object.setPrototypeOf && Object.setPrototypeOf(this, Error.prototype)
     Error.captureStackTrace && Error.captureStackTrace(this, this.constructor)
   }
 }
 
 export class I18nProviderError extends I18nBaseError {
-  name = 'I18nProviderError'
+  constructor(message: string, public original: Error | null = null) {
+    super(message, original)
+
+    this.name = 'I18nProviderError'
+    Object.setPrototypeOf && Object.setPrototypeOf(this, I18nBaseError.prototype)
+  }
 }
 
 export class I18nLookupError extends I18nBaseError {
-  name = 'I18nLookupError'
+  constructor(message: string, public original: Error | null = null) {
+    super(message, original)
+
+    this.name = 'I18nLookupError'
+    Object.setPrototypeOf && Object.setPrototypeOf(this, I18nBaseError.prototype)
+  }
 }
 
 export interface I18nProviderProps<Helpers> {
+  /** Sets initial language */
   defaultLanguage: string
+  /** Synchronous or asynchronous json language object */
   source: I18nAsyncLoader<I18nPath>
+  /** Provide localized helpers down the consumers */
   helpers?: I18nAsyncLoader<Helpers>
+  /**
+   * Non-state based error handler, because it might come from componentDidCatch.
+   * Mainly used for development phase. Error is cleared after this handler asynchronously returns
+   */
   errorHandler?: I18nErrorHandler
 }
 
-export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProps<Helpers>, I18nContext> {
+export class I18nProvider<Helpers = {}> extends React.PureComponent<I18nProviderProps<Helpers>, I18nContext> {
   languages: { [lang: string]: any } = { }
 
   componentDidCatch(err: Error) {
     if (err instanceof I18nBaseError) {
-      return this.report(err)
+      return this.reportError(err)
     }
 
     throw err
+  }
+
+  componentWillUnmount() {
+    this.clearLastError()
+    this.languages = { }
   }
 
   deferSetState = (state: Partial<I18nContext & I18nHelpers<Helpers>> | ((state?: I18nContext & I18nHelpers<Helpers>) => Partial<I18nContext & I18nHelpers<Helpers>> | null)) => {
@@ -92,7 +119,7 @@ export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProp
       return await loader(lang)
     } catch (e) {
       if (!(e instanceof I18nBaseError)) {
-        throw new I18nProviderError(`Failed to load language for "${lang}":\n\n${e.message}\n\n${e.stack}`)
+        throw new I18nProviderError(`Failed to load language for "${lang}"`, e)
       } else {
         throw e
       }
@@ -104,7 +131,7 @@ export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProp
       return await loader(lang)
     } catch (e) {
       if (!(e instanceof I18nBaseError)) {
-        throw new I18nProviderError(`Failed to load helpers for "${lang}":\n\n${e.message}\n\n${e.stack}`)
+        throw new I18nProviderError(`Failed to load helpers for "${lang}"`, e)
       } else {
         throw e
       }
@@ -116,14 +143,14 @@ export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProp
       await this.deferSetState({ ready: false })
 
       if (!(lang in this.languages)) {
-        await this.insertLanguage(lang, await this.asyncLoader(lang, this.props.source))
+        this.insertLanguage(lang, await this.asyncLoader(lang, this.props.source))
       }
 
       if (typeof this.props.helpers === 'function') {
         await this.deferSetState({ helpers: await this.assignHelpers(lang, this.props.helpers) })
       }
     } catch (e) {
-      this.report(e)
+      this.reportError(e)
     } finally {
       await this.deferSetState({ ready: true })
     }
@@ -136,35 +163,51 @@ export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProp
   }
 
   insertLanguage: InsertLanguage<any> = (lang, data) => {
-    return new Promise((resolve) => {
-      resolve(this.languages[lang] = {
-        ...data
-      })
-    })
+    return this.languages[lang] = {
+      ...data
+    }
   }
 
   lastError: Error | null = null
 
-  report: Report = (error) => {
-    if (this.props.errorHandler && this.lastError !== error) {
-      this.props.errorHandler(this.lastError = error)
+  async componentDidUpdate(
+    //prevProps: I18nProviderProps<Helpers>,
+    //prevState: I18nContext
+  ) {
+    if (
+        typeof this.props.errorHandler === 'function' &&
+        this.lastError instanceof I18nBaseError &&
+        this.state.ready
+      ) {
+      await this.props.errorHandler(this.lastError)
+      this.clearLastError()
+    }
+  }
+
+  clearLastError: Clear = () => {
+    this.lastError = null
+  }
+
+  reportError: Report = (error) => {
+    if (error instanceof Error) {
+      this.lastError = error
     }
   }
 
   get: Get<string> = (path) => {
-    if (!this.state.ready) return
-
     try {
       const data = get(this.languages[this.state.lang], path)
 
       if (!data) {
-        throw new I18nLookupError(`Could not find path "${path}"`)
+        throw new I18nLookupError(`Could not find path "${path}" in "${this.state.lang}"`)
       }
 
       return data
     } catch (e) {
-      this.report(e)
+      this.reportError(e)
     }
+
+    return ''
   }
 
   componentDidMount() {
@@ -174,10 +217,11 @@ export class I18nProvider<Helpers = {}> extends React.Component<I18nProviderProp
   state = {
     lang: this.props.defaultLanguage,
     setLocale: this.setLocale,
-    report: this.report,
+    reportError: this.reportError,
     get: this.get,
     asyncLoader: this.asyncLoader,
     ready: false,
+    clearLastError: this.clearLastError,
     helpers: {}
   }
 
@@ -194,8 +238,8 @@ export interface I18nInlineProps {
   path: string;
 }
 
-export class I18nInline extends React.Component<I18nInlineProps> {
-  text: I18nReceiver = (value) => (value.ready && <React.Fragment>{value.get(this.props.path)}</React.Fragment>)
+export class I18nInline extends React.PureComponent<I18nInlineProps> {
+  text: I18nReceiver = (value) => (<>{value.get(this.props.path)}</>)
 
   render() {
     return (
@@ -211,7 +255,7 @@ export interface I18nRenderProps<T> {
   children: (expected: T) => React.ReactNode
 }
 
-export class I18nRender<Expected = any> extends React.Component<I18nRenderProps<Expected>> {
+export class I18nRender<Expected = {}> extends React.PureComponent<I18nRenderProps<Expected>> {
   text: I18nReceiver = (value) => {
     const v = value.get(this.props.path)
     if (!v) return null
@@ -234,26 +278,29 @@ export type WithI18nProps<YourProps> = YourProps & {
 export function withI18n<
   P extends {},
   S extends {}
->(Component: React.ComponentClass<WithI18nProps<P>, S>) {
-  const Forwarded = (forwardedRef: React.Ref<any>, rest: any) => (value: I18nContext) => (
-    <Component ref={forwardedRef} i18n={value} {...rest} />
-  )
+>(Component: React.ComponentClass<WithI18nProps<P>, S> | React.StatelessComponent<WithI18nProps<P>>) {
 
-  class With18nComponent extends React.Component<any, S> {
+  class WithI18n extends React.Component<{ forwardedRef: any }> {
+    forward: I18nReceiver = (value) => {
+      const { forwardedRef, ...rest } = this.props as any
+
+      return (<Component ref={forwardedRef} i18n={value} {...rest} />)
+    }
+
     render() {
-      const  { forwardedRef, ...rest } = this.props as any
-
       return (
         <I18nRawConsumer>
-          {Forwarded(forwardedRef, rest)}
+          {this.forward}
         </I18nRawConsumer>
       )
     }
   }
 
-  return React.forwardRef<P, S>((props, ref) => (
-    <With18nComponent forwardedRef={ref} {...props} />
-  )) as any as React.ComponentClass<P, S>
+  return React.forwardRef<P, S>((props, ref) => {
+    return (
+      <WithI18n forwardedRef={ref} {...props} />
+    )
+  }) as any as React.ComponentClass<P, S>
 }
 
 export type I18nHelperChildren<K, V = never> = (helper: K, value: V) => React.ReactNode
@@ -264,7 +311,7 @@ export interface I18nHelperProps<Helpers, K extends keyof Helpers = keyof Helper
   children?: I18nHelperChildren<Helpers[K], any>
 }
 
-export class I18nHelper<Helpers = {}> extends React.Component<I18nHelperProps<Helpers>> {
+export class I18nHelper<Helpers = {}> extends React.PureComponent<I18nHelperProps<Helpers>> {
   helpers: I18nReceiver<Helpers> = (value) => {
     if (!value.helpers) return null
 
@@ -277,6 +324,8 @@ export class I18nHelper<Helpers = {}> extends React.Component<I18nHelperProps<He
     if (typeof helper === 'function') {
       return helper(this.props.value)
     }
+
+    value.reportError(new I18nLookupError(`could not find "${this.props.name}" for "${value.lang}"`))
 
     return null
   }

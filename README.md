@@ -38,7 +38,11 @@ if on a Typescript project or on vscode, you should either have a peerDependency
 #### main.jsx
 ```tsx
 import React from 'react'
-import { I18nProvider, I18nRender, I18nInline, I18nRawConsumer } from 'react-i18n-context'
+import { I18nProvider, I18nRender, withI18n, I18nInline, I18nRawConsumer } from 'react-i18n-context'
+
+const CurrentLanguage = withI18n(({ i18n }) => (
+  <div>{i18n.lang}</div>
+))
 
 class App extends React.Component {
   loader = async (lang) => {

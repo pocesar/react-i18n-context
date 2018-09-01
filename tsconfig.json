@@ -9,7 +9,7 @@
     "strictFunctionTypes": true,
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
-    "inlineSourceMap": true,
+    "sourceMap": true,
     "declaration": true,
     "alwaysStrict": true,
     "noUnusedLocals": true,

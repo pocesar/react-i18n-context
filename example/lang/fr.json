@@ -2,6 +2,11 @@
   "hello": "Bonjour",
   "world": "monde",
   "increment": "Plus",
+  "welcomeback": {
+    "main": "Bon retour",
+    "fallback": "citoyen du monde"
+  },
+  "placeholder": "Tapez votre nom",
   "complex": "Un exemple plus complexe",
   "have-milk": {
     "have": "J'ai ",

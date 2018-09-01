@@ -1,5 +1,18 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`I18nHelper empty 1`] = `null`;
+
+exports[`I18nHelper exec 1`] = `null`;
+
+exports[`I18nHelper renders 1`] = `
+Array [
+  <p>
+    word
+  </p>,
+  <p />,
+]
+`;
+
 exports[`I18nInline changes language 1`] = `
 <div>
   Hello 
@@ -7,8 +20,30 @@ exports[`I18nInline changes language 1`] = `
 </div>
 `;
 
-exports[`withI18n HOC 1`] = `
+exports[`I18nInline renders single path 1`] = `
+<div>
+  Hello 
+  world
+</div>
+`;
+
+exports[`I18nInline renders single path 2`] = `
+<div>
+  Hello 
+  mundo
+</div>
+`;
+
+exports[`i18nRender complex render 1`] = `"lul"`;
+
+exports[`withI18n forwardedRef 1`] = `
 <div>
   hello
+</div>
+`;
+
+exports[`withI18n hoc 1`] = `
+<div>
+  en
 </div>
 `;

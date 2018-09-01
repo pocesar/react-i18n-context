@@ -9,5 +9,6 @@ example/script.js
 example/node_modules
 example/script.d.ts
 example/script.js.map
-example/dist
+example/dist/*
+!example/dist/.gitkeep
 coverage

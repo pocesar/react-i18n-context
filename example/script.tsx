@@ -15,18 +15,34 @@ import {
   I18nRender,
   I18nPath,
   I18nHelper,
-  I18nHelperChildren
+  I18nHelperChildren,
+  withI18n,
+  WithI18nProps
 } from '../index'
 
 interface MyHelpers {
   moment: (date: Date) => moment.Moment
 }
 
+const CurrentLanguage = withI18n(({ i18n }) => (
+  <>[Internal language code: {i18n.lang}]</>
+))
+
 interface ComponentState {
   count: number
 }
 
-class SubApp extends React.Component<{ }, ComponentState> {
+class WelcomeBackBare extends React.PureComponent<WithI18nProps<{name: string}>> {
+  render() {
+    return (
+      <span>{`${this.props.i18n.get('welcomeback.main')}, ${this.props.name || this.props.i18n.get('welcomeback.fallback')}`}</span>
+    )
+  }
+}
+
+const WelcomeBack = withI18n(WelcomeBackBare)
+
+class Counter extends React.PureComponent<{}, ComponentState> {
   state = {
     count: 0
   }
@@ -39,18 +55,44 @@ class SubApp extends React.Component<{ }, ComponentState> {
     })
   }
 
+  render() {
+    return (
+      <>
+        <p><I18nInline path="complex" /></p>
+        <div>
+          <I18nRender<{have: string, count: string[], milk: string, alot: string}> path="have-milk">
+            {(translation) => (
+              <div>
+                {`${translation.have} ${this.state.count} ${translation.count[this.state.count == 1 ? 1 : 0]} ${translation.milk}`}
+                {' '}{ this.state.count > 2 ? translation.alot : null }
+              </div>
+            )}
+          </I18nRender>
+          <div><button onClick={this.inc}><I18nInline path="increment" /></button> (<I18nInline path="have-milk.count.0" />)</div>
+        </div>
+      </>
+    )
+  }
+}
+
+class SubApp extends React.Component<any, { name: string }> {
+  state = {
+    name: ''
+  }
+
+  languages = [
+    { code: 'pt', name: 'Português' },
+    { code: 'en', name: 'English' },
+    { code: 'de', name: 'Deutsch' }, // doesn't exist on purpose
+    { code: 'fr', name: 'Français' },
+  ]
   // Simplest inline language selector
   languageSelect: I18nReceiver = (context) => {
     const underline = (lang: string) => (lang == context.lang ? {textDecoration: 'underline'} : {})
 
     return (
       <ul>
-        {[
-          { code: 'pt', name: 'Português' },
-          { code: 'en', name: 'English' },
-          { code: 'de', name: 'Deutsch' }, // doesn't exist on purpose
-          { code: 'fr', name: 'Français' },
-        ].map((lang, index) => (
+        {this.languages.map((lang, index) => (
           <li key={index}>
             <a
               onClick={() => context.setLocale(lang.code)}
@@ -67,6 +109,10 @@ class SubApp extends React.Component<{ }, ComponentState> {
     return <>{helper(value).format('LLLL')}</>
   }
 
+  changeName: React.EventHandler<React.ChangeEvent<HTMLInputElement>> = (e) => {
+    this.setState({ name: e.target.value })
+  }
+
   render() {
     return (
       <div>
@@ -74,6 +120,7 @@ class SubApp extends React.Component<{ }, ComponentState> {
         {/* Use Raw consumer to access the context, and get the context functions for
             building a language selector */}
         <I18nRawConsumer>{this.languageSelect}</I18nRawConsumer>
+        <div><CurrentLanguage /></div>
 
         <hr />
         <h1><I18nInline path="hello" />{' '}<I18nInline path="world" /></h1>
@@ -87,33 +134,24 @@ class SubApp extends React.Component<{ }, ComponentState> {
           </I18nHelper>
         </h1>
         <hr />
-        <p><I18nInline path="complex" /></p>
+        <Counter />
+
+        <hr />
         <div>
-          <I18nRender<{have: string, count: string[], milk: string, alot: string}> path="have-milk">
-            {(translation) => (
-              <div>
-                {`${translation.have} ${this.state.count} ${translation.count[this.state.count == 1 ? 1 : 0]} ${translation.milk}`}
-                {' '}{ this.state.count > 2 ? translation.alot : null }
-              </div>
+          <I18nRender<string> path="placeholder">
+            {(placeholder) => (
+              <p><input type="text" value={this.state.name} placeholder={placeholder} onChange={this.changeName} /></p>
             )}
           </I18nRender>
-          <div><button onClick={this.inc}><I18nInline path="increment" /></button> (<I18nInline path="have-milk.count.0" />)</div>
-        </div>
 
+          <WelcomeBack name={this.state.name} />
+        </div>
       </div>
     )
   }
 }
 
-class App extends React.Component<{}, { error: Error | null }> {
-  constructor(props: any){
-    super(props)
-
-    this.state = {
-      error: null
-    }
-  }
-
+class App extends React.Component {
   componentWillMount() {
     moment.locale('en')
   }
@@ -128,6 +166,11 @@ class App extends React.Component<{}, { error: Error | null }> {
           'world': 'mundo',
           'increment': 'Adicionar',
           'complex': 'Um exemplo mais complexo',
+          "welcomeback": {
+            "main": "Bem-vindo de volta",
+            "fallback": "cidadão do mundo"
+          },
+          'placeholder': 'Escreva seu nome',
           'have-milk': {
             'have': 'Eu tenho ',
             'count': ['canecas', 'caneca'],
@@ -140,6 +183,11 @@ class App extends React.Component<{}, { error: Error | null }> {
           'hello': 'Hello',
           'world': 'world',
           'increment': 'Increment',
+          "welcomeback": {
+            "main": "Welcome back",
+            "fallback": "world citizen"
+          },
+          'placeholder': 'Type your name',
           'complex': 'A more complex example',
           'have-milk': {
             'have': 'I have ',
@@ -161,27 +209,9 @@ class App extends React.Component<{}, { error: Error | null }> {
   }
 
   // this will only be called and rendered if an internal error occurs
+  // error is cleared after this callback is called
   error: I18nErrorHandler = (error) => {
-    if (this.state.error || this.state.error === error) return
-
-    const frame = requestAnimationFrame(() => {
-      cancelAnimationFrame(frame)
-
-      this.setState({ error })
-    })
-  }
-
-  showError = () => {
-    if (this.state.error === null) return null
-
-    return (
-      <div className="error">
-        <h2>Error ocurred!</h2>
-        <p>{this.state.error.message} (on purpose)</p>
-      </div>
-    )
-    // instead of an error, you can return null and log the error to the console, and
-    // only in case you're working locally
+    return console.error(error)
   }
 
   helpers: I18nAsyncLoader<MyHelpers> = (lang) => {
@@ -191,6 +221,7 @@ class App extends React.Component<{}, { error: Error | null }> {
   }
 
   render() {
+    console.log('render')
     return (
       <I18nProvider<MyHelpers>
         // defaultLanguage can also come from a redux store or be hardcoded like this
@@ -199,11 +230,11 @@ class App extends React.Component<{}, { error: Error | null }> {
         // source can be static (like import 'something.json' using Babel / Webpack)
         // or can be an ajax async request
         source={this.source}
+        // create localized helpers, payments systems depending on language, etc
         helpers={this.helpers}
+        // this is useful to catch missing translations while developing
         errorHandler={this.error}
         >
-        {this.showError()}
-
         <SubApp />
       </I18nProvider>
     )
